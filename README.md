@@ -1,115 +1,75 @@
-# React + TypeScript + Vite
+# OpsHub Proof of Concept (POC)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+OpsHub is an advanced document automation and management platform built with React, TypeScript, Vite, and Supabase. 
 
-Currently, two official plugins are available:
+This Proof of Concept (POC) bridges the gap between rigid, offline `.docx` workflows and dynamic, cloud-first internal tooling. It provides two distinct pathways to achieve seamless document automation.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What this POC solves
 
-## React Compiler
+Operation teams often rely on boilerplate `.docx` templates (e.g. NDAs, vendor agreements, bidding contracts) where users must manually locate `.......` placeholders and type in their data. This is error-prone, hard to track, and difficult to manage version control securely.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The OpsHub POC solves this through two iterative modules:
 
-## Expanding the ESLint configuration
+### 1. Form Filler (V1)
+A reverse-engineering approach to legacy document workflows.
+* **The Flow:** Users upload an existing legacy `.docx` file filled with line placeholders (e.g., `Name: ........`).
+* **The Solution:** The system parses the binary `.docx` file into rendering HTML via `mammoth`, intelligently detects contiguous line placehoder sequences using Regex, and dynamically injects strictly controlled React `<input>` fields directly into the document view.
+* **Result:** It provides a hybrid interactive document layout. The user type data into the web UI which safely handles two-way data-binding. The final state is reconstructed back into a formatted `.docx` file through `docxtemplater` mapping and exported, ensuring legacy systems can still consume the files.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 2. Template Editor (V2)
+A unified, cloud-native rich-text platform to completely eliminate legacy external editors.
+* **The Flow:** Users draft documents directly inside the web interface using an advanced rich-text Tiptap editor.
+* **The Solution:** Instead of dots, users declare absolute Variable tokens (`{{customer_name}}`) along with their expected DataType (Text, Number, Date). These variables are rendered as smart interactive chips within the editor surface itself.
+* **Result:** Templates are saved immutably to **Supabase** via relational Postgres schemas (`document_templates` mapped uniquely to `template_variables`). These variables dynamically build structured sidebars, drastically simplifying future template-filler workflows. 
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Technical Architecture & Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Frontend Core:** React 18, Vite, TypeScript
+- **Styling:** Tailwind CSS v4 featuring a sleek, bespoke Intercom-inspired Light Theme (Warm creams, Off-Black text, Fin Orange accents).
+- **UI Architecture:** Built entirely upon `@shadcn` composition philosophies (`Button`, `Input`, `Badge`, `ScrollArea`) for robust un-styled component access.
+- **Rich Text Editor:** `Tiptap` combined with custom Node Extensions (for defining interactive `{{variable}}` schemas).
+- **Offline/Caching:** Client-side local persistence leveraging standard `IndexedDB` schemas to enable instant, optimistic UI switching unblocked by network requests.
+- **Backend & Auth:** Supabase and PostgreSQL.
+- **Document Processing:**  
+  - `mammoth.js`: Translating binary `.docx` -> semantic `HTML`.  
+  - `docxtemplater`: Re-injecting JSON state -> binary `.docx`.  
+  - `pizzip`: Binary archive zipping standard for internal OOXML mapping.
+
+---
+
+## Database Schemas (Supabase Postgres)
+
+The application models templates in a highly structured structure ensuring atomicity.
+
+```sql
+create table public.document_templates (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  filename text,
+  html_content text,
+  status text check (status in ('Draft', 'Published', 'Archived')) default 'Draft',
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create table public.template_variables (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid references public.document_templates on delete cascade not null,
+  key text not null,
+  label text not null,
+  data_type text not null, -- 'Text', 'Number', 'Date'
+  created_at timestamp with time zone default now()
+);
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Running the Project
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Install dependencies
+bun install
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start the dev server
+bun dev
 ```
-
-
-## Technical Problems
-
-1. What if user need to export the docx file with the data filled in the docx file? Can out application can handle this?
-
-2. What if the user need to import the docx file and the data filled in the docx file?
-
-3. Chưa biết định dạng 1 file auction bid agreement như nào?
-
-
-## Verify feature
-
-1. Upload a template docx file => user will be able to edit the template file (like google docs, tiptap, ...) => Its more like a document editor with a custom pre-configured format (eg: {{customer_name}}, {{project_name}}) for input fields for reusable  => After save the template file, user can download the template file to their local machine and for further use in future.
-
-2. the custom pre-configured format is called "variables". Each "variable" will have a key (eg: {{customer_name}}) and a value (eg: John Doe). 
-
-3. When user add a "variable" to a template file, the variable will appear in the right sidebar of the editor. User can fill the value of the variable in the right sidebar and also use those added variables in the template file. 
-
-4. After finish editing the "variables" and template file, user can save the template file to the cloud (or a database).
-  4.1. When user save the template file, the application will also save the "variables" to the cloud (or a database). 
-  4.2. "Variables" data will be saved in the database with the template file (the relation is one-to-many, one template file can have many variables).
-
-5. User can also download the template file to their local machine. 
-
-6. Template file has version to track the changes ? => Not yet verified
-
-7. User can comment on the template file ? => Not yet verified
-
-8. User can approve/reject the template file ? => Verified
-
-## Questions
-
-1. After user save the template file, what will happen? What is the template file used for when we have many template files?
-
-2. Assume we have a list of template files, and each template file has a list of variables. When user download a template, what does the content of the template look like? Does it contain the variables or not? Does the variables in the template file get replaced with "......" or something else?
-
-3. What happen if user upload a docx file that contains variables? Will the application be able to detect the variables and replace them with the values from the database?
-
-4. What happen if user upload a docx file that not empty, it has content and variables, and user want to use this docx file as a template file? Will the application be able to detect the variables and replace them with the values from the database?
-
-5. What happen if user upload a docx file that not empty, it has content and the place holder for variables, and user want to use this docx file as a template file? 
