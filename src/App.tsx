@@ -1,121 +1,141 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import DocxUploader from "@/components/DocxUploader";
+import DocxViewer from "@/components/DocxViewer";
+import ExportBar from "@/components/ExportBar";
+import SavedDocumentsList from "@/components/SavedDocumentsList";
+import TabBar, { type AppTab } from "@/components/TabBar";
+import TemplateEditor from "@/components/TemplateEditor";
+import { useDocxForm } from "@/hooks/useDocxForm";
+import {
+  type SavedDocument,
+  useSavedDocuments,
+} from "@/hooks/useSavedDocuments";
+import { FileDocIcon, SpinnerIcon } from "@phosphor-icons/react";
+import { useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [activeTab, setActiveTab] = useState<AppTab>("filler");
+
+  // ── V1 Form Filler state ──────────────────────────────────────────────────
+  const {
+    html,
+    fieldCount,
+    filename,
+    formData,
+    isSaving,
+    isExporting,
+    isLoading,
+    saveSuccess,
+    errorMsg,
+    handleFile,
+    handleLoad,
+    handleChange,
+    handleExport,
+    handleSave,
+    handleReset,
+  } = useDocxForm();
+
+  const {
+    documents,
+    isLoading: listLoading,
+    error: listError,
+    refetch,
+  } = useSavedDocuments();
+
+  const [activeDocId, setActiveDocId] = useState<string | undefined>();
+
+  const filledCount = Object.values(formData).filter(
+    (v) => v.trim() !== "",
+  ).length;
+
+  const handleSelectDoc = async (doc: SavedDocument) => {
+    setActiveDocId(doc.id);
+    await handleLoad(doc);
+  };
+
+  const handleSaveAndRefresh = async () => {
+    await handleSave();
+    refetch();
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="min-h-svh flex flex-col bg-background text-foreground font-sans">
+      {/* ── Header ───────────────────────────────────────────────── */}
+      <header className="px-8 py-4 border-b border-border flex items-center justify-between gap-6">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 text-primary font-semibold text-lg shrink-0">
+          <FileDocIcon size={26} weight="duotone" />
+          <span>OpsHub</span>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+        {/* Tab switcher */}
+        <TabBar activeTab={activeTab} onChange={setActiveTab} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {/* Right spacer — keeps tabs centered-ish */}
+        <div className="w-32 shrink-0" />
+      </header>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {/* ── V1 Form Filler ───────────────────────────────────────── */}
+      {activeTab === "filler" && (
+        <div className="flex flex-1 gap-6 px-8 py-8 max-w-7xl w-full mx-auto">
+          {/* Left: saved documents sidebar */}
+          <SavedDocumentsList
+            documents={documents}
+            isLoading={listLoading}
+            error={listError}
+            activeId={activeDocId}
+            onSelect={handleSelectDoc}
+            onRefresh={refetch}
+          />
+
+          {/* Divider */}
+          <div className="w-px bg-border shrink-0" />
+
+          {/* Right: editor area */}
+          <main className="flex-1 flex flex-col gap-5 min-w-0">
+            <DocxUploader onFile={handleFile} filename={filename} />
+
+            {isLoading && (
+              <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground text-sm">
+                <SpinnerIcon size={20} className="animate-spin" />
+                Loading document from cloud…
+              </div>
+            )}
+
+            {html && !isLoading && (
+              <>
+                <DocxViewer
+                  html={html}
+                  formData={formData}
+                  onFieldChange={handleChange}
+                />
+
+                <ExportBar
+                  fieldCount={fieldCount}
+                  filledCount={filledCount}
+                  isExporting={isExporting}
+                  isSaving={isSaving}
+                  saveSuccess={saveSuccess}
+                  errorMsg={errorMsg}
+                  onExport={handleExport}
+                  onSave={handleSaveAndRefresh}
+                  onReset={() => {
+                    handleReset();
+                    setActiveDocId(undefined);
+                  }}
+                  disabled={!html}
+                />
+              </>
+            )}
+          </main>
+        </div>
+      )}
+
+      {/* ── V2 Template Editor ───────────────────────────────────── */}
+      {activeTab === "editor" && (
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <TemplateEditor />
+        </div>
+      )}
+    </div>
+  );
 }
-
-export default App
