@@ -9,10 +9,8 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
 import mammoth from "mammoth";
-// @packback/html-to-docx - CJS module, access .default for the callable
-import _HTMLtoDOCX from "@packback/html-to-docx";
-type HtmlToDocxFn = (html: string, headerHtml: null | string, options: Record<string, unknown>) => Promise<Blob>;
-const HTMLtoDOCX: HtmlToDocxFn = ((_HTMLtoDOCX as unknown as { default?: HtmlToDocxFn }).default ?? _HTMLtoDOCX) as unknown as HtmlToDocxFn;
+import { HtmlToDocxService } from "@packback/html-to-docx";
+import { Packer } from "docx";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,32 +122,15 @@ export async function exportEditorAsDocx(
 	// Strip variable chips back to text tokens
 	const processedHtml = preprocessEditorHtml(html, variableValues, mode);
 
-	// Wrap in a full HTML document for better docx rendering
-	const fullHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
-        h1 { font-size: 18pt; font-weight: bold; text-align: center; text-transform: uppercase; }
-        h2 { font-size: 14pt; font-weight: bold; }
-        h3 { font-size: 12pt; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { border: 1px solid #999; padding: 4px 8px; }
-      </style>
-    </head>
-    <body>${processedHtml}</body>
-    </html>
-  `;
-
-	const blob = await HTMLtoDOCX(fullHtml, null, {
-		margin: { top: 1440, bottom: 1440, left: 1800, right: 1800 },
-		font: "Times New Roman",
-		fontSize: 24, // half-points
-		lineHeight: 276,
+	const docxDocument = await HtmlToDocxService.convertHtmlToDocument({
+		htmlContent: processedHtml,
+		documentSettings: {
+			font_family: "times-new-roman",
+			font_size: 12,
+		},
 	});
 
+	const blob = await Packer.toBlob(docxDocument);
 	saveAs(blob, filename);
 }
 
